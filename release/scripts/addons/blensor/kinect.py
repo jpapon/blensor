@@ -36,6 +36,7 @@ from blensor.noise import PerlinNoise
 
 
 WINDOW_INLIER_DISTANCE = 0.1
+PIXEL_INTERP = 14.0
 
 from mathutils import Vector, Euler, Matrix
 
@@ -110,9 +111,9 @@ def fast_9x9_window(distances, res_x, res_y, disparity_map, noise_smooth, noise_
   disp_data[:] = INVALID_DISPARITY
   
   """Highly experimental. Just a quick hack for alexandru"""
-  pnoise = PerlinNoise(size=(res_x,res_y))
+  pnoise = PerlinNoise(size=(res_y,res_x),n=512)
   #It is important to reshape it exactly as it was generated (w,h)
-  noise_field = (pnoise.getData(scale=32.0)-1.0).reshape((res_x,res_y)) 
+  noise_field = (pnoise.getData(scale=3,)-1.0).reshape((res_y,res_x)) 
   """-------------"""
 
   
@@ -141,8 +142,9 @@ def fast_9x9_window(distances, res_x, res_y, disparity_map, noise_smooth, noise_
           pointcount = numpy.sum(weights[valids])
           if numpy.sum(valids) > numpy.sum(dot_window)/1.5:
             accu = window[4,4]
-            
-            disp_data[y+4,x+4] = round((accu + noise_scale*noise_field[(x+4)/noise_smooth,(y+4)/noise_smooth])*8.0)/8.0
+            #round((accu + noise_scale*noise_field[(x+4)/noise_smooth,(y+4)/noise_smooth])*20.0)/20.0
+            disp_data[y+4,x+4] = round((accu+noise_scale*noise_field[(y+4),(x+4)])*PIXEL_INTERP)/PIXEL_INTERP + random.gauss(0, 0.01)
+            #disp_data[y+4,x+4] = accu+noise_scale*noise_field[(y+4),(x+4)] 
             #round(accu*8.0)/8.0 #Values need to be requantified
             
             interpolation_window = interpolation_map[y:y+9,x:x+9]
@@ -273,23 +275,22 @@ def scan_advanced(scanner_object, evd_file=None,
     for i in range(len(camera_returns)):
         idx = camera_returns[i][-1] 
         projector_idx = projector_ray_index[idx] # Get the index of the original ray
-
         if abs(camera_rays[idx*3]-camera_returns[i][1]) < 0.01 and abs(camera_rays[idx*3+1]-camera_returns[i][2]) < 0.01 and  abs(camera_rays[idx*3+2]-camera_returns[i][3]) < 0.01 and abs(camera_returns[i][3]) <= max_distance and abs(camera_returns[i][3]) >= min_distance:
             """The ray hit the projected ray, so this is a valid measurement"""
             projector_point = get_uv_from_idx(projector_idx, res_x,res_y)
 
             camera_x = get_pixel_from_world(camera_rays[idx*3],camera_rays[idx*3+2],
-                                   flength/pixel_width) + random.gauss(noise_mu, noise_sigma)
+                                   flength/pixel_width) 
 
             camera_y = get_pixel_from_world(camera_rays[idx*3+1],camera_rays[idx*3+2],
                                    flength/pixel_width)
 
             """ Kinect calculates the disparity with an accuracy of 1/8 pixel"""
 
-            camera_x_quantized = round(camera_x*8.0)/8.0
+            camera_x_quantized = round(camera_x*PIXEL_INTERP)/PIXEL_INTERP 
             
             #I don't know if this accurately represents the kinect 
-            camera_y_quantized = round(camera_y*8.0)/8.0 
+            #camera_y_quantized = round(camera_y*PIXEL_INTERP)/PIXEL_INTERP
 
             disparity_quantized = camera_x_quantized + projector_point[0]
             all_quantized_disparities[projector_idx] = disparity_quantized
@@ -312,8 +313,6 @@ def scan_advanced(scanner_object, evd_file=None,
         projector_idx = projector_ray_index[idx] # Get the index of the original ray
         camera_x,camera_y = get_uv_from_idx(projector_idx, res_x,res_y)
 
-        
-        
         disparity_quantized = processed_disparities[projector_idx] 
         
         if disparity_quantized < INVALID_DISPARITY and disparity_quantized != 0.0:
@@ -337,9 +336,13 @@ def scan_advanced(scanner_object, evd_file=None,
             v_noise = (world_transformation * vn.to_4d()).xyz 
             verts_noise.append( v_noise )
              
-            kinect_image[projector_idx] = [ray_info[projector_idx][2], 
+            yidx = int (projector_idx / res_x)
+            xidx = projector_idx - yidx*res_x
+            xidx = res_x - xidx
+            new_idx = xidx + res_x*yidx
+            kinect_image[new_idx] = [ray_info[projector_idx][2], 
                0.0, 0.0, -returns[idx][3], -Z_quantized, vt[0], 
-               vt[1], vt[2], v_noise[0], v_noise[1], v_noise[2], 
+               vt[1], -vt[2], v_noise[0], v_noise[1], -v_noise[2], 
                returns[idx][4], returns[idx][5][0], returns[idx][5][1],
                returns[idx][5][2],projector_idx]
             image_idx += 1

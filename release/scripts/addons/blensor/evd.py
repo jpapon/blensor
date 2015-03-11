@@ -124,17 +124,17 @@ class evd_file:
           print ("Written: %d entries"%idx)
           evd.close()
   
-    def write_point(self, pcl, pcl_noisy, e, output_labels):
+    def write_point(self, pcl_noisy, e, output_labels):
       #Storing color values packed into a single floating point number??? 
       #That is really required by the pcl library!
       color_uint32 = (e[12][0]<<16) | (e[12][1]<<8) | (e[12][2])
       values=struct.unpack("f",struct.pack("I",color_uint32))
 
       if output_labels:
-        pcl.write("%f %f %f %.15e %d\n"%(float(e[5]),float(e[6]),float(e[7]), values[0], int(e[11])))        
+        #pcl.write("%f %f %f %.15e %d\n"%(float(e[5]),float(e[6]),float(e[7]), values[0], int(e[11])))        
         pcl_noisy.write("%f %f %f %.15e %d\n"%(float(e[8]),float(e[9]),float(e[10]), values[0], int(e[11])))        
       else:
-        pcl.write("%f %f %f %.15e\n"%(float(e[5]),float(e[6]),float(e[7]), values[0]))        
+        #pcl_noisy.write("%f %f %f %.15e\n"%(float(e[5]),float(e[6]),float(e[7]), values[0]))        
         pcl_noisy.write("%f %f %f %.15e\n"%(float(e[8]),float(e[9]),float(e[10]), values[0]))        
 
 
@@ -150,30 +150,30 @@ class evd_file:
         width = self.width
         height = self.height
       try:
-        pcl = open("%s%05d.pcd"%(self.filename,frame_counter),"w")
-        pcl_noisy = open("%s_noisy%05d.pcd"%(self.filename,frame_counter),"w")
+        #pcl = open("%s.pcd"%(self.filename),"w")
+        pcl_noisy = open("%s.pcd"%(self.filename),"w")
         if self.output_labels:
-          pcl.write(PCL_HEADER_WITH_LABELS%(width,height,width*height))
+          #pcl.write(PCL_HEADER_WITH_LABELS%(width,height,width*height))
           pcl_noisy.write(PCL_HEADER_WITH_LABELS%(width,height,width*height))
         else:
-          pcl.write(PCL_HEADER%(width,height,width*height))
+          #pcl.write(PCL_HEADER%(width,height,width*height))
           pcl_noisy.write(PCL_HEADER%(width,height,width*height))
         idx = 0
-        for e in self.buffer:
-          if e[13] > idx and not sparse_mode: # e[13] is the idx of the point
-            for i in range(idx, e[13]):
-              self.write_point(pcl, pcl_noisy, INVALID_POINT, self.output_labels)
-              idx += 1
+        for e in reversed(self.buffer):
+          #if e[13] > idx and not sparse_mode: # e[13] is the idx of the point
+          #  for i in range(idx, e[13]):
+          #    self.write_point(pcl, pcl_noisy, INVALID_POINT, self.output_labels)
+          #    idx += 1
           
-          idx += 1
-          self.write_point(pcl, pcl_noisy, e, self.output_labels)
+          #idx += 1
+          self.write_point(pcl_noisy, e, self.output_labels)
       
-        if idx < width*height:
-          for i in range(idx, width*height):
-            self.write_point(pcl, pcl_noisy, INVALID_POINT, self.output_labels)
+        #if idx < width*height:
+        #  for i in range(idx, width*height):
+        #    self.write_point(pcl, pcl_noisy, INVALID_POINT, self.output_labels)
       
       
-        pcl.close()
+        #pcl.close()
         pcl_noisy.close()
       except Exception as e:
         traceback.print_exc()      
@@ -186,13 +186,13 @@ class evd_file:
         pgm_noisy = open("%s_noisy%05d.pgm"%(self.filename,frame_counter),"w")
         pgm.write(PGM_HEADER%(self.width,self.height, PGM_VALUE_RANGE))
         pgm_noisy.write(PGM_HEADER%(self.width,self.height, PGM_VALUE_RANGE))
-        for val in range(len(self.image)):
+        for val in range(len(self.image)-1,-1,-1):
           if not math.isnan(self.image[val]):
             ival = int(PGM_VALUE_RANGE*self.image[val]/self.max_depth)
           else:
             ival = 0
           pgm.write("%d\n"%(ival if ival < PGM_VALUE_RANGE else PGM_VALUE_RANGE))
-        for val in range(len(self.image_noisy)):
+        for val in range(len(self.image_noisy)-1,-1,-1):
           if not math.isnan(self.image_noisy[val]):
             ival = int(PGM_VALUE_RANGE*self.image_noisy[val]/self.max_depth)
           else:

@@ -8,7 +8,7 @@ class PerlinNoise(object):
 
     def noise(self, coords):
 
-        ijk = (floor(coords) + self.idx_ar).astype(int8)
+        ijk = (floor(coords) + self.idx_ar).astype(int32)
 
         uvw = coords - ijk
 
@@ -22,9 +22,9 @@ class PerlinNoise(object):
         
         res = (self.drop(abs(uvw)).prod(axis=2)*prod([gradiens, uvw], axis=0).sum(axis=2)).sum(axis=1)
 
-        res[res > 1.0] = 1.0
-        res[res < -1.0] = -1.0
-
+        #res[res > 1.0] = 1.0
+        #res[res < -1.0] = -1.0
+        
         return ((res + 1)).astype(float32)
 
     def getData(self, scale=32.0):
@@ -56,7 +56,7 @@ class PerlinNoise(object):
         
         self.G = (G[length < 1] / (length[length < 1])[:,newaxis])[:n,]
         self.P = arange(n, dtype=int32)
-        
+
         random.shuffle(self.P)
         
         self.idx_ar = indices(2*ones(self.order), dtype=int8).reshape(self.order, -1).T
